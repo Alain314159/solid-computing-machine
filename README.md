@@ -1,4 +1,4 @@
-# 🐷🤗🐨 CERDITA 💕
+usarlosNayeliNayeli🐨 CERDITA 💕
 
 **La app de chat romántico para parejas**
 
@@ -172,26 +172,12 @@ cbb002b docs: Add complete implementation summary
 
 ## 🤝 Contribuir
 
-Este proyecto es para uso personal de la pareja Alain-Nayeli. Si quieres usarlo como referencia, siéntete libre de hacerlo.
+Este proyecto es para uso personal de la pareja Alain-Ame. Si quieres usarlo como referencia, siéntete libre de hacerlo.
 
 ---
 
 ## 📄 Licencia
 
-MIT License - Ver [LICENSE](LICENSE) para más detalles.
-
----
-
-## 💕 Hecho con Amor
-
-Desarrollado para **Alain & Nayeli** 💑
-
-**Fecha:** Marzo 2026
-
----
-
-<div align="center">
-
-**🐷🤗🐨 ¡El amor todo lo puede! 🐨🤗🐷**
+MIT License - Ver [LICENSE](LICENSE) para más detalles.🐷**
 
 </div>
