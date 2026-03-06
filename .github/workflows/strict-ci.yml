@@ -1,0 +1,197 @@
+name: Strict CI - Quality Gate
+
+on:
+  push:
+    branches: [ "main", "master", "develop" ]
+    tags: ['v*']
+  pull_request:
+    branches: [ "main", "master", "develop" ]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  GRADLE_OPTS: "-Dorg.gradle.jvmargs=-Xmx4g -XX:MaxMetaspaceSize=512m"
+  _JAVA_OPTIONS: "-Xmx4g"
+
+jobs:
+  kotlin-compile-check:
+    name: "🔍 Kotlin Compilation"
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-java@v4
+        with:
+          java-version: 17
+          distribution: 'temurin'
+          cache: gradle
+      - uses: android-actions/setup-android@v3
+      - run: chmod +x gradlew
+      - run: ./gradlew clean compileDebugKotlin --no-daemon -Pksp.incremental=false
+      - name: Upload compilation report on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: kotlin-compile-report
+          path: |
+            **/build/reports/
+            **/build/outputs/
+
+  lint-strict:
+    name: "📋 Strict Lint"
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    needs: kotlin-compile-check
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          java-version: 17
+          distribution: 'temurin'
+          cache: gradle
+      - uses: android-actions/setup-android@v3
+      - run: chmod +x gradlew
+      - run: ./gradlew lintDebug --no-daemon -Pksp.incremental=false
+      - name: Upload lint report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lint-report
+          path: |
+            app/build/reports/lint-results-debug.html
+            app/build/reports/lint-results-debug.xml
+          retention-days: 7
+          if-no-files-found: warn
+
+  build-debug:
+    name: "📦 Build Debug APK"
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    needs: lint-strict
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          java-version: 17
+          distribution: 'temurin'
+          cache: gradle
+      - uses: android-actions/setup-android@v3
+      - run: chmod +x gradlew
+      - run: ./gradlew assembleDebug --no-daemon -Pksp.incremental=false
+      - name: Verify APK exists
+        run: test -n "$(find app/build/outputs/apk/debug -name '*-debug.apk' -type f)" || (echo "No debug APK found" && exit 1)
+      - name: Upload Debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: apk-debug
+          path: app/build/outputs/apk/debug/*.apk
+          retention-days: 14
+      - name: Show APK info
+        run: |
+          echo "## 📦 Debug APK Built" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          for apk in app/build/outputs/apk/debug/*.apk; do
+            if [ -f "$apk" ]; then
+              size=$(du -h "$apk" | cut -f1)
+              echo "- **$apk**: $size" >> $GITHUB_STEP_SUMMARY
+            fi
+          done
+
+  build-release:
+    name: "🚀 Build Release APK"
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    needs: lint-strict
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          java-version: 17
+          distribution: 'temurin'
+          cache: gradle
+      - uses: android-actions/setup-android@v3
+      - run: chmod +x gradlew
+      - run: ./gradlew assembleRelease --no-daemon -Pksp.incremental=false
+      - name: Verify Release APK exists
+        run: test -n "$(find app/build/outputs/apk -name '*-release.apk' -type f)" || (echo "No release APK found" && exit 1)
+      - name: Upload Release APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: apk-release
+          path: app/build/outputs/apk/release/*.apk
+          retention-days: 14
+
+  github-release:
+    name: "🎉 GitHub Release"
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: [build-debug, build-release]
+    if: startsWith(github.ref, 'refs/tags/v')
+    steps:
+      - name: Download Debug APK
+        uses: actions/download-artifact@v4
+        with:
+          name: apk-debug
+          path: ./artifacts/debug
+      - name: Download Release APK
+        uses: actions/download-artifact@v4
+        with:
+          name: apk-release
+          path: ./artifacts/release
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            ./artifacts/debug/*.apk
+            ./artifacts/release/*.apk
+          body: |
+            ## 📱 Release ${{ github.ref_name }}
+            
+            ### 📥 Downloads
+            | APK | Description |
+            |-----|-------------|
+            | Debug | Testing enabled |
+            | Release | Optimized |
+            
+            _Auto-generated by GitHub Actions_
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  quality-gate-summary:
+    name: "📊 Quality Gate Summary"
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: [kotlin-compile-check, lint-strict, build-debug, build-release]
+    if: always()
+    steps:
+      - name: Check job statuses
+        run: |
+          echo "## 🎯 Quality Gate Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Check | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|-------|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Kotlin Compilation | ${{ needs.kotlin-compile-check.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Strict Lint | ${{ needs.lint-strict.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Build Debug APK | ${{ needs.build-debug.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Build Release APK | ${{ needs.build-release.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          if [ "${{ needs.kotlin-compile-check.result }}" != "success" ] || \
+             [ "${{ needs.lint-strict.result }}" != "success" ] || \
+             [ "${{ needs.build-debug.result }}" != "success" ]; then
+            echo "❌ **Quality Gate FAILED**" >> $GITHUB_STEP_SUMMARY
+            exit 1
+          else
+            echo "✅ **Quality Gate PASSED** - Ready to use!" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "### 📱 Next Steps:" >> $GITHUB_STEP_SUMMARY
+            echo "1. Download APK from artifacts" >> $GITHUB_STEP_SUMMARY
+            echo "2. Install on device" >> $GITHUB_STEP_SUMMARY
+            echo "3. Configure Matrix login" >> $GITHUB_STEP_SUMMARY
+            echo "4. Share Ntfy topic with partner" >> $GITHUB_STEP_SUMMARY
+          fi
