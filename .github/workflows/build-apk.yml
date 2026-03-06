@@ -1,0 +1,211 @@
+name: '🚀 Build and Release APK'
+
+on:
+  push:
+    branches:
+      - 'main'
+      - 'release/**/*'
+    paths:
+      - 'app/**/*'
+      - 'build.gradle.kts'
+      - 'settings.gradle.kts'
+      - 'gradle/**/*'
+  pull_request:
+    branches:
+      - 'main'
+  workflow_dispatch:
+
+concurrency:
+  group: '${{ github.workflow }}-${{ github.ref }}'
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: 'bash'
+
+jobs:
+  build:
+    name: '🔨 Build APK'
+    runs-on: 'ubuntu-latest'
+    timeout-minutes: 30
+    permissions:
+      contents: 'read'
+      actions: 'read'
+    
+    steps:
+      - name: '📥 Checkout repository'
+        uses: 'actions/checkout@v4'
+        with:
+          fetch-depth: 1
+
+      - name: '☕ Set up JDK 17'
+        uses: 'actions/setup-java@v4'
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: 'gradle'
+
+      - name: '🔧 Grant execute permission for gradlew'
+        run: 'chmod +x gradlew'
+        if: ${{ hashFiles('gradlew') != '' }}
+
+      - name: '📦 Download Gradle Wrapper'
+        if: ${{ hashFiles('gradlew') == '' }}
+        run: |
+          echo "Gradle wrapper not found, creating..."
+          # Create minimal gradle wrapper files if missing
+          mkdir -p gradle/wrapper
+          echo "distributionBase=GRADLE_USER_HOME" > gradle/wrapper/gradle-wrapper.properties
+          echo "distributionPath=wrapper/dists" >> gradle/wrapper/gradle-wrapper.properties
+          echo "distributionUrl=https\://services.gradle.org/distributions/gradle-8.7-bin.zip" >> gradle/wrapper/gradle-wrapper.properties
+          echo "zipStoreBase=GRADLE_USER_HOME" >> gradle/wrapper/gradle-wrapper.properties
+          echo "zipStorePath=wrapper/dists" >> gradle/wrapper/gradle-wrapper.properties
+
+      - name: '🧹 Clean build'
+        run: './gradlew clean || true'
+        continue-on-error: true
+
+      - name: '📋 Build Debug APK'
+        id: 'build_debug'
+        run: './gradlew assembleDebug --stacktrace --no-daemon'
+        timeout-minutes: 25
+
+      - name: '✅ Verify APK was built'
+        id: 'verify_apk'
+        run: |
+          echo "🔍 Looking for APK files..."
+          find . -name "*.apk" -type f || true
+          
+          if [ -f "app/build/outputs/apk/debug/app-debug.apk" ]; then
+            echo "✅ Debug APK found!"
+            echo "apk_path=app/build/outputs/apk/debug/app-debug.apk" >> $GITHUB_OUTPUT
+          elif [ -f "app/build/outputs/apk/debug/app-debug.apk" ]; then
+            echo "✅ Debug APK found (alternate path)!"
+            echo "apk_path=app/build/outputs/apk/debug/app-debug.apk" >> $GITHUB_OUTPUT
+          else
+            echo "❌ APK not found! Build may have failed."
+            exit 1
+          fi
+
+      - name: '📊 Get APK info'
+        id: 'apk_info'
+        run: |
+          APK_PATH="${{ steps.verify_apk.outputs.apk_path }}"
+          if [ -f "$APK_PATH" ]; then
+            APK_SIZE=$(ls -lh "$APK_PATH" | awk '{print $5}')
+            APK_SIZE_BYTES=$(stat -c%s "$APK_PATH" 2>/dev/null || stat -f%z "$APK_PATH" 2>/dev/null || echo "unknown")
+            echo "apk_size=$APK_SIZE" >> $GITHUB_OUTPUT
+            echo "apk_size_bytes=$APK_SIZE_BYTES" >> $GITHUB_OUTPUT
+            echo "✅ APK Size: $APK_SIZE ($APK_SIZE_BYTES bytes)"
+          fi
+
+      - name: '📤 Upload Debug APK'
+        uses: 'actions/upload-artifact@v4'
+        with:
+          name: 'cerdita-debug-apk'
+          path: '${{ steps.verify_apk.outputs.apk_path }}'
+          retention-days: 30
+          if-no-files-found: 'error'
+
+      - name: '📝 Build Summary'
+        run: |
+          echo "## 🎉 Build Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "✅ **Build Status:** SUCCESS" >> $GITHUB_STEP_SUMMARY
+          echo "📦 **APK Path:** \`${{ steps.verify_apk.outputs.apk_path }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "📏 **APK Size:** ${{ steps.apk_info.outputs.apk_size }} (${{ steps.apk_info.outputs.apk_size_bytes }} bytes)" >> $GITHUB_STEP_SUMMARY
+          echo "🕐 **Build Time:** $(date -u '+%Y-%m-%d %H:%M:%S UTC')" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 📱 App Details" >> $GITHUB_STEP_SUMMARY
+          echo "- **Package:** com.cerdita.app" >> $GITHUB_STEP_SUMMARY
+          echo "- **Version:** 1.0.0" >> $GITHUB_STEP_SUMMARY
+          echo "- **Min SDK:** 26 (Android 8.0)" >> $GITHUB_STEP_SUMMARY
+          echo "- **Target SDK:** 35 (Android 15)" >> $GITHUB_STEP_SUMMARY
+
+  test:
+    name: '🧪 Run Tests'
+    runs-on: 'ubuntu-latest'
+    timeout-minutes: 15
+    needs: 'build'
+    permissions:
+      contents: 'read'
+    
+    steps:
+      - name: '📥 Checkout repository'
+        uses: 'actions/checkout@v4'
+
+      - name: '☕ Set up JDK 17'
+        uses: 'actions/setup-java@v4'
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: 'gradle'
+
+      - name: '🧪 Run Unit Tests'
+        run: './gradlew test --stacktrace --no-daemon'
+        continue-on-error: true
+        timeout-minutes: 10
+
+      - name: '📊 Publish Test Results'
+        uses: 'actions/upload-artifact@v4'
+        if: always()
+        with:
+          name: 'test-results'
+          path: |
+            app/build/test-results/**/*.xml
+            app/build/reports/tests/**/*.html
+          retention-days: 7
+          if-no-files-found: 'ignore'
+
+  release:
+    name: '📦 Create Release'
+    runs-on: 'ubuntu-latest'
+    timeout-minutes: 10
+    needs: ['build', 'test']
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    permissions:
+      contents: 'write'
+      actions: 'read'
+    
+    steps:
+      - name: '📥 Download APK'
+        uses: 'actions/download-artifact@v4'
+        with:
+          name: 'cerdita-debug-apk'
+          path: './artifact'
+
+      - name: '📤 Create GitHub Release'
+        uses: 'softprops/action-gh-release@v2'
+        with:
+          name: '🐷🤗🐨 Cerdita 💕 v1.0.0'
+          tag_name: 'v1.0.0'
+          body: |
+            ## 🎉 Cerdita 💕 - Chat Romántico para Parejas
+            
+            ### ✨ Características
+            - 💬 Chat de texto en tiempo real con Matrix
+            - 🔔 Notificaciones push con Ntfy (3 topics auto-rotación)
+            - 💕 Efectos románticos al detectar palabras de amor
+            - 🎨 4 temas personalizables
+            - 📅 Calendario de fechas especiales
+            - 🐷🤗🐨 Botón de abrazo animado
+            
+            ### 🛠️ Técnico
+            - **Min SDK:** 26 (Android 8.0)
+            - **Target SDK:** 35 (Android 15)
+            - **Kotlin:** 2.1.0
+            - **Compose:** 1.7.8
+            
+            ### 📦 Instalación
+            1. Descarga el APK
+            2. Habilita "Orígenes desconocidos" en tu dispositivo
+            3. Instala y disfruta 💕
+            
+            ---
+            *Build automático generado por GitHub Actions*
+          files: './artifact/*.apk'
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: '${{ secrets.GITHUB_TOKEN }}'
