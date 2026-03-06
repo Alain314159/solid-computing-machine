@@ -7,18 +7,23 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.hilt.navigation.compose.hiltViewModel
 import com.cerdita.app.presentation.ui.components.ThemeSelector
 import com.cerdita.app.presentation.ui.theme.ThemeType
+import com.cerdita.app.presentation.viewmodel.SettingsViewModel
+import com.cerdita.app.presentation.viewmodel.EffectIntensity
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
     onLogout: () -> Unit,
-    onNavigateToNotifications: () -> Unit
+    onNavigateToNotifications: () -> Unit,
+    viewModel: SettingsViewModel = hiltViewModel()
 ) {
-    var selectedTheme by remember { mutableStateOf(ThemeType.CERDITA) }
-    var notificationsEnabled by remember { mutableStateOf(true) }
-    var romanticEffectsEnabled by remember { mutableStateOf(true) }
+    val theme by viewModel.theme.collectAsState()
+    val notificationsEnabled by viewModel.notificationsEnabled.collectAsState()
+    val romanticEffectsEnabled by viewModel.romanticEffectsEnabled.collectAsState()
+    val effectIntensity by viewModel.effectIntensity.collectAsState()
 
     Column(
         modifier = Modifier
@@ -68,8 +73,8 @@ fun SettingsScreen(
                     )
                     Spacer(modifier = Modifier.height(16.dp))
                     ThemeSelector(
-                        selectedTheme = selectedTheme,
-                        onThemeSelected = { selectedTheme = it }
+                        selectedTheme = theme,
+                        onThemeSelected = { viewModel.setTheme(it) }
                     )
                 }
             }
@@ -96,7 +101,7 @@ fun SettingsScreen(
                         Text("Activar notificaciones")
                         Switch(
                             checked = notificationsEnabled,
-                            onCheckedChange = { notificationsEnabled = it }
+                            onCheckedChange = { viewModel.setNotificationsEnabled(it) }
                         )
                     }
                 }
@@ -124,7 +129,7 @@ fun SettingsScreen(
                         Text("Activar efectos")
                         Switch(
                             checked = romanticEffectsEnabled,
-                            onCheckedChange = { romanticEffectsEnabled = it }
+                            onCheckedChange = { viewModel.setRomanticEffectsEnabled(it) }
                         )
                     }
                 }
