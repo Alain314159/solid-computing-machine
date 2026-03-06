@@ -31,6 +31,10 @@ android {
                 "proguard-rules.pro"
             )
         }
+        debug {
+            isMinifyEnabled = false
+            applicationIdSuffix = ".debug"
+        }
     }
 
     compileOptions {
@@ -47,9 +51,14 @@ android {
         buildConfig = true
     }
 
+    composeOptions {
+        kotlinCompilerExtensionVersion = "1.5.8"
+    }
+
     packaging {
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
+            excludes += "/META-INF/DEPENDENCIES"
         }
     }
 }
@@ -71,9 +80,12 @@ dependencies {
     implementation("androidx.compose.ui:ui-graphics")
     implementation("androidx.compose.ui:ui-tooling-preview")
     implementation("androidx.compose.material3:material3:1.3.1")
+    implementation("androidx.compose.material:material-icons-extended")
     implementation("androidx.compose.animation:animation")
     implementation("androidx.compose.animation:animation-graphics")
     implementation("androidx.navigation:navigation-compose:2.8.8")
+    implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.7")
+    implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.7")
 
     // ═══════════════════════════════════════════════════════════════════
     // MATRIX SDK
@@ -122,6 +134,17 @@ dependencies {
     // WORK MANAGER
     // ═══════════════════════════════════════════════════════════════════
     implementation("androidx.work:work-runtime-ktx:2.10.0")
+
+    // ═══════════════════════════════════════════════════════════════════
+    // DATASTORE
+    // ═══════════════════════════════════════════════════════════════════
+    implementation("androidx.datastore:datastore-preferences:1.1.1")
+
+    // ═══════════════════════════════════════════════════════════════════
+    // ACCOMPANIST
+    // ═══════════════════════════════════════════════════════════════════
+    implementation("com.google.accompanist:accompanist-systemuicontroller:0.36.0")
+    implementation("com.google.accompanist:accompanist-permissions:0.36.0")
 
     // ═══════════════════════════════════════════════════════════════════
     // TESTING

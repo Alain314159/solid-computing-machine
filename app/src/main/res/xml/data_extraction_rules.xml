@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<data-extraction-rules>
+    <cloud-backup>
+        <!-- Backup de preferencias y base de datos -->
+        <include
+            domain="sharedpref"
+            path="." />
+        <include
+            domain="database"
+            path="." />
+        
+        <!-- Excluir archivos sensibles -->
+        <exclude
+            domain="sharedpref"
+            path="auth_prefs.xml" />
+        <exclude
+            domain="file"
+            path="ntfy_data.xml" />
+    </cloud-backup>
+</data-extraction-rules>

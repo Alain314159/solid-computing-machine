@@ -1,0 +1,36 @@
+{
+  "all_decisions_made": [
+    "MVVM + Clean Architecture chosen for separation of concerns",
+    "Hilt for dependency injection (not Koin)",
+    "Room for local database (not SQLite)",
+    "Ntfy.sh for notifications (not Firebase)",
+    "Matrix.org for messaging protocol"
+  ],
+  "all_errors_made": [],
+  "all_fixes_applied": [],
+  "pattern_evolution": [
+    "Started with basic Matrix client, evolved to MatrixSdkClient",
+    "Added NtfyService for background notifications",
+    "Implemented 8 animated chat backgrounds",
+    "Created 5 sticker packs (104 stickers)"
+  ],
+  "knowledge_accumulated": {
+    "project_status": "65% complete",
+    "completed_features": [
+      "Authentication (Login/Register)",
+      "Ntfy notification system",
+      "Room database with all entities/DAOs",
+      "All main screens (9 screens)",
+      "13 UI components",
+      "Romantic word detector (50+ words)"
+    ],
+    "pending_features": [
+      "Full Matrix SDK integration",
+      "Lottie animations",
+      "Widget de Amor",
+      "Days counter",
+      "Memory album",
+      "Love letters"
+    ]
+  }
+}

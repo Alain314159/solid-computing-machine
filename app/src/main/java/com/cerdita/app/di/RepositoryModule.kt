@@ -2,6 +2,7 @@ package com.cerdita.app.di
 
 import com.cerdita.app.data.remote.matrix.MatrixClient
 import com.cerdita.app.data.repository.*
+import com.cerdita.app.service.NtfyManager
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -41,5 +42,11 @@ class RepositoryModule {
         settingsDao: com.cerdita.app.data.local.database.dao.SettingsDao
     ): SettingsRepository {
         return SettingsRepository(settingsDao)
+    }
+
+    @Provides
+    @Singleton
+    fun provideNtfyRepository(ntfyManager: NtfyManager): NtfyRepository {
+        return NtfyRepository(ntfyManager)
     }
 }

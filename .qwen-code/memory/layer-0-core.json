@@ -1,0 +1,61 @@
+{
+  "project_identity": {
+    "name": "Cerdita",
+    "version": "1.0.0",
+    "type": "android-app",
+    "package": "com.cerdita.app",
+    "critical_paths": [
+      "app/src/main/java/com/cerdita/app/CerditaApplication.kt",
+      "app/src/main/java/com/cerdita/app/MainActivity.kt",
+      "app/src/main/AndroidManifest.xml",
+      "app/build.gradle.kts",
+      "build.gradle.kts"
+    ],
+    "entry_points": [
+      "app/src/main/java/com/cerdita/app/MainActivity.kt",
+      "app/src/main/java/com/cerdita/app/presentation/ui/navigation/AppNavGraph.kt"
+    ]
+  },
+  "architecture_map": {
+    "layers": [
+      "presentation (UI, ViewModels, Navigation)",
+      "domain (Models, UseCases)",
+      "data (Repositories, Local/Remote, Entities)"
+    ],
+    "dependencies": [
+      "Hilt (DI)",
+      "Room (Database)",
+      "Matrix SDK (Messaging)",
+      "Ntfy (Notifications)",
+      "Jetpack Compose (UI)",
+      "Navigation Compose"
+    ],
+    "data_flow": "UI → ViewModel → UseCase → Repository → DataSource (Local/Remote)"
+  },
+  "forbidden_patterns": [
+    "Do not modify build.gradle.kts without explicit request",
+    "Do not change AndroidManifest permissions without confirmation",
+    "Do not remove Hilt annotations (@AndroidEntryPoint, @HiltViewModel, @Inject)",
+    "Do not change Room entity schema without migration plan",
+    "Do not modify NtfyService configuration (critical for notifications)"
+  ],
+  "golden_patterns": [
+    "Use StateFlow for UI state in ViewModels",
+    "Use sealed classes for UI events and results",
+    "Keep composables small and focused (single responsibility)",
+    "Use dependency injection via Hilt for all repositories and use cases",
+    "Follow MVVM: UI observes state, ViewModel processes, UseCase executes business logic",
+    "Naming: ViewModel suffix, UseCase suffix, Screen suffix for composables",
+    "Use Result<T> wrapper for operation outcomes",
+    "Store sensitive data in EncryptedSharedPreferences"
+  ],
+  "tech_stack": {
+    "kotlin": "2.1.0",
+    "compose": "1.7.8",
+    "material3": "1.3.1",
+    "hilt": "2.55",
+    "room": "2.6.1",
+    "minSdk": 26,
+    "targetSdk": 35
+  }
+}
