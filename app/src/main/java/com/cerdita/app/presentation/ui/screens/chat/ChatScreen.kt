@@ -1,5 +1,6 @@
 package com.cerdita.app.presentation.ui.screens.chat
 
+import android.net.Uri
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -8,14 +9,14 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.cerdita.app.presentation.ui.components.HugButton
-import com.cerdita.app.presentation.ui.components.InputField
-import com.cerdita.app.presentation.ui.components.MessageBubble
+import com.cerdita.app.presentation.ui.components.*
 import com.cerdita.app.presentation.viewmodel.ChatViewModel
+import com.cerdita.app.util.ImageUtils
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -23,10 +24,13 @@ import kotlinx.coroutines.launch
 fun ChatScreen(
     viewModel: ChatViewModel = hiltViewModel()
 ) {
+    val context = LocalContext.current
     val messages by viewModel.messages.collectAsState()
     val listState = rememberLazyListState()
     val scope = rememberCoroutineScope()
     var messageText by remember { mutableStateOf("") }
+    var showAttachDialog by remember { mutableStateOf(false) }
+    var showStickerPicker by remember { mutableStateOf(false) }
 
     // Auto-scroll al último mensaje
     LaunchedEffect(messages.size) {
@@ -36,6 +40,22 @@ fun ChatScreen(
             }
         }
     }
+
+    // Image picker
+    val imagePicker = rememberImagePickerLauncher(
+        onImageSelected = { uri ->
+            // TODO: Compress and send image
+            viewModel.sendMessage("📷 Imagen enviada")
+        }
+    )
+
+    // Video picker
+    val videoPicker = rememberVideoPickerLauncher(
+        onVideoSelected = { uri ->
+            // TODO: Send video
+            viewModel.sendMessage("📹 Video enviado")
+        }
+    )
 
     Column(
         modifier = Modifier
@@ -64,7 +84,6 @@ fun ChatScreen(
             actions = {
                 HugButton(
                     onClick = {
-                        // TODO: Mostrar animación de abrazo
                         viewModel.sendMessage("Te envío un abrazo 🐷🤗🐨")
                     }
                 )
@@ -84,7 +103,7 @@ fun ChatScreen(
                 items = messages,
                 key = { it.messageId }
             ) { message ->
-                val isFromMe = message.senderId == "me" // TODO: Comparar con userId real
+                val isFromMe = message.senderId == (viewModel::class.java.simpleName) // TODO: Comparar con userId real
                 MessageBubble(
                     message = message,
                     isFromMe = isFromMe,
@@ -143,7 +162,118 @@ fun ChatScreen(
             },
             onTyping = { isTyping ->
                 viewModel.onTyping(isTyping)
-            }
+            },
+            onAttachClick = { showAttachDialog = true },
+            onEmojiClick = { /* TODO: Show emoji picker */ },
+            onVoiceClick = { /* Handled by InputField */ }
         )
+
+        // Sticker picker
+        if (showStickerPicker) {
+            StickerPicker(
+                onStickerSelected = { sticker ->
+                    viewModel.sendMessage("${sticker.emoji} Sticker: ${sticker.name}")
+                    showStickerPicker = false
+                },
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
+    }
+
+    // Attach dialog
+    if (showAttachDialog) {
+        AttachDialog(
+            onTakePhoto = {
+                imagePicker.launch("image/*")
+                showAttachDialog = false
+            },
+            onChooseImage = {
+                imagePicker.launch("image/*")
+                showAttachDialog = false
+            },
+            onRecordVideo = {
+                videoPicker.launch("video/*")
+                showAttachDialog = false
+            },
+            onChooseVideo = {
+                videoPicker.launch("video/*")
+                showAttachDialog = false
+            },
+            onChooseFile = {
+                // TODO: File picker
+                showAttachDialog = false
+            },
+            onDismiss = { showAttachDialog = false }
+        )
+    }
+}
+
+@Composable
+private fun AttachDialog(
+    onTakePhoto: () -> Unit,
+    onChooseImage: () -> Unit,
+    onRecordVideo: () -> Unit,
+    onChooseVideo: () -> Unit,
+    onChooseFile: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text(
+                text = "Adjuntar",
+                fontWeight = FontWeight.Bold
+            )
+        },
+        text = {
+            Column {
+                AttachOption("📷 Tomar foto", onTakePhoto)
+                AttachOption("🖼️ Elegir imagen", onChooseImage)
+                AttachOption("📹 Grabar video", onRecordVideo)
+                AttachOption("🎬 Elegir video", onChooseVideo)
+                AttachOption("📁 Archivo", onChooseFile)
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancelar")
+            }
+        }
+    )
+}
+
+@Composable
+private fun AttachOption(text: String, onClick: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = text,
+            style = MaterialTheme.typography.bodyLarge
+        )
+    }
+}
+
+// Helper functions for pickers
+@Composable
+private fun rememberImagePickerLauncher(onImageSelected: (Uri) -> Unit): androidx.activity.result.ActivityResultLauncher<String> {
+    val context = LocalContext.current
+    return (context as androidx.activity.ComponentActivity).registerForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.GetContent()
+    ) { uri ->
+        uri?.let { onImageSelected(it) }
+    }
+}
+
+@Composable
+private fun rememberVideoPickerLauncher(onVideoSelected: (Uri) -> Unit): androidx.activity.result.ActivityResultLauncher<String> {
+    val context = LocalContext.current
+    return (context as androidx.activity.ComponentActivity).registerForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.GetContent()
+    ) { uri ->
+        uri?.let { onVideoSelected(it) }
     }
 }
