@@ -7,7 +7,27 @@
 
 ## 📋 ERRORES ENCONTRADOS Y CORREGIDOS
 
-### 1. ❌ Color import faltante en Theme.kt
+### 1. ❌ BUILD FAILED - android.useAndroidX no configurado
+**Error:** `Configuration contains AndroidX dependencies, but the android.useAndroidX property is not enabled`
+
+**Archivo faltante:** `gradle.properties`
+
+**Solución:**
+```properties
+# Creado: gradle.properties
+android.useAndroidX=true
+android.suppressUnsupportedCompileSdk=35
+org.gradle.jvmargs=-Xmx4g -Dfile.encoding=UTF-8
+org.gradle.parallel=true
+org.gradle.caching=true
+ksp.incremental=false
+```
+
+**Commit:** `ea25f6b fix: Add gradle.properties with AndroidX configuration`
+
+---
+
+### 2. ❌ Color import faltante en Theme.kt
 **Error:** `Unresolved reference: Color`
 
 **Archivo:** `app/src/main/java/com/cerdita/app/presentation/ui/theme/Theme.kt`
@@ -22,7 +42,7 @@ import androidx.compose.ui.graphics.Color
 
 ---
 
-### 2. ❌ NotificationsViewModel no existía
+### 3. ❌ NotificationsViewModel no existía
 **Error:** `Unresolved reference: NotificationsViewModel`
 
 **Archivo faltante:** `app/src/main/java/com/cerdita/app/presentation/viewmodel/NotificationsViewModel.kt`
