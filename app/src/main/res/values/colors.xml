@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Colores del Tema Cerdita -->
+    <color name="cerdita_pink">#FFB6C1</color>
+    <color name="cerdita_yellow">#FFFACD</color>
+    <color name="cerdita_coral">#FF7F50</color>
+    
+    <!-- Colores del Tema Koalita -->
+    <color name="koala_blue_gray">#778899</color>
+    <color name="koala_eucalyptus">#8FBC8F</color>
+    
+    <!-- Colores del Tema Flores -->
+    <color name="flower_pink_pastel">#FFB7C5</color>
+    <color name="flower_mint_green">#98FF98</color>
+    <color name="flower_lavender">#E6E6FA</color>
+    
+    <!-- Colores Generales -->
+    <color name="black">#000000</color>
+    <color name="white">#FFFFFF</color>
+    <color name="transparent">#00000000</color>
+</resources>

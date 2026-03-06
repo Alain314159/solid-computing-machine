@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Cerdita 💕</string>
+    <string name="login">Iniciar sesión</string>
+    <string name="register">Registrarse</string>
+    <string name="logout">Cerrar sesión</string>
+    <string name="username">Usuario</string>
+    <string name="password">Contraseña</string>
+    <string name="email">Email</string>
+    <string name="chat">Chat</string>
+    <string name="settings">Ajustes</string>
+    <string name="calendar">Calendario</string>
+    <string name="profile">Perfil</string>
+    <string name="send">Enviar</string>
+    <string name="message_hint">Escribe un mensaje...</string>
+    <string name="welcome">¡Bienvenido a Cerdita! 💕</string>
+    <string name="hug_button">🐷🤗🐨</string>
+</resources>
