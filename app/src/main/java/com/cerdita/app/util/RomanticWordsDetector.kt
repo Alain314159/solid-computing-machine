@@ -1,116 +1,150 @@
 package com.cerdita.app.util
 
+import timber.log.Timber
+
+/**
+ * Detector de palabras románticas para activar efectos
+ * 
+ * Detecta 50+ palabras románticas en 8 categorías diferentes
+ * y activa el efecto correspondiente cuando se encuentra una coincidencia.
+ */
 object RomanticWordsDetector {
-    
-    data class RomanticWord(
-        val word: String,
-        val effect: RomanticEffectType,
-        val category: WordCategory
+
+    data class RomanticCategory(
+        val name: String,
+        val words: List<String>,
+        val effectType: EffectType
     )
-    
-    enum class RomanticEffectType {
-        LOVE,      // 💕
-        BEAUTY,    // ✨
-        MORNING,   // 🌅
-        NIGHT,     // 🌙
-        BIRTHDAY,  // 🎂
-        MISS,      // 💭
-        THANKS,    // 💕
-        SORRY,     // 😢
-        CONGRATS,  // 🎊
-        ENCOURAGE, // 💪
-        MEET       // 🤗
+
+    enum class EffectType {
+        HEARTS,      // Corazones
+        STARS,       // Estrellas
+        SUNRISE,     // Amanecer
+        MOON,        // Luna
+        CONFETTI,    // Confeti
+        CLOUDS,      // Nubes
+        FLOWERS,     // Flores
+        HUG,         // Abrazo
+        NONE         // Sin efecto
     }
-    
-    enum class WordCategory {
-        AMOR,
-        BELLEZA,
-        SALUDOS,
-        CUMPLEANOS,
-        EXTRANAR,
-        GRATITUD,
-        PERDON,
-        FELICIDADES,
-        ANIMOS,
-        ENCUENTRO
-    }
-    
-    private val romanticWords = listOf(
-        // Amor
-        RomanticWord("te amo", RomanticEffectType.LOVE, WordCategory.AMOR),
-        RomanticWord("te quiero", RomanticEffectType.LOVE, WordCategory.AMOR),
-        RomanticWord("te adoro", RomanticEffectType.LOVE, WordCategory.AMOR),
-        RomanticWord("eres mi amor", RomanticEffectType.LOVE, WordCategory.AMOR),
-        RomanticWord("mi vida", RomanticEffectType.LOVE, WordCategory.AMOR),
-        RomanticWord("mi corazón", RomanticEffectType.LOVE, WordCategory.AMOR),
-        
-        // Belleza
-        RomanticWord("eres hermosa", RomanticEffectType.BEAUTY, WordCategory.BELLEZA),
-        RomanticWord("eres bella", RomanticEffectType.BEAUTY, WordCategory.BELLEZA),
-        RomanticWord("eres preciosa", RomanticEffectType.BEAUTY, WordCategory.BELLEZA),
-        RomanticWord("qué linda", RomanticEffectType.BEAUTY, WordCategory.BELLEZA),
-        
-        // Buenos días
-        RomanticWord("buenos días", RomanticEffectType.MORNING, WordCategory.SALUDOS),
-        RomanticWord("buen día", RomanticEffectType.MORNING, WordCategory.SALUDOS),
-        RomanticWord("feliz día", RomanticEffectType.MORNING, WordCategory.SALUDOS),
-        
-        // Buenas noches
-        RomanticWord("buenas noches", RomanticEffectType.NIGHT, WordCategory.SALUDOS),
-        RomanticWord("que descanses", RomanticEffectType.NIGHT, WordCategory.SALUDOS),
-        RomanticWord("dulces sueños", RomanticEffectType.NIGHT, WordCategory.SALUDOS),
-        
-        // Cumpleaños
-        RomanticWord("feliz cumpleaños", RomanticEffectType.BIRTHDAY, WordCategory.CUMPLEANOS),
-        RomanticWord("feliz cumple", RomanticEffectType.BIRTHDAY, WordCategory.CUMPLEANOS),
-        
-        // Extrañar
-        RomanticWord("te extraño", RomanticEffectType.MISS, WordCategory.EXTRANAR),
-        RomanticWord("te echo de menos", RomanticEffectType.MISS, WordCategory.EXTRANAR),
-        RomanticWord("me haces falta", RomanticEffectType.MISS, WordCategory.EXTRANAR),
-        
-        // Gracias
-        RomanticWord("gracias", RomanticEffectType.THANKS, WordCategory.GRATITUD),
-        RomanticWord("gracias mi vida", RomanticEffectType.THANKS, WordCategory.GRATITUD),
-        RomanticWord("mil gracias", RomanticEffectType.THANKS, WordCategory.GRATITUD),
-        
-        // Perdón
-        RomanticWord("perdón", RomanticEffectType.SORRY, WordCategory.PERDON),
-        RomanticWord("perdóname", RomanticEffectType.SORRY, WordCategory.PERDON),
-        RomanticWord("lo siento", RomanticEffectType.SORRY, WordCategory.PERDON),
-        RomanticWord("disculpa", RomanticEffectType.SORRY, WordCategory.PERDON),
-        
-        // Felicidades
-        RomanticWord("felicidades", RomanticEffectType.CONGRATS, WordCategory.FELICIDADES),
-        RomanticWord("lo lograste", RomanticEffectType.CONGRATS, WordCategory.FELICIDADES),
-        RomanticWord("orgulloso", RomanticEffectType.CONGRATS, WordCategory.FELICIDADES),
-        
-        // Ánimos
-        RomanticWord("tú puedes", RomanticEffectType.ENCOURAGE, WordCategory.ANIMOS),
-        RomanticWord("ánimos", RomanticEffectType.ENCOURAGE, WordCategory.ANIMOS),
-        RomanticWord("eres fuerte", RomanticEffectType.ENCOURAGE, WordCategory.ANIMOS),
-        
-        // Encontro
-        RomanticWord("ya quiero verte", RomanticEffectType.MEET, WordCategory.ENCUENTRO),
-        RomanticWord("nos vemos pronto", RomanticEffectType.MEET, WordCategory.ENCUENTRO),
-        RomanticWord("te voy a ver", RomanticEffectType.MEET, WordCategory.ENCUENTRO)
+
+    val categories = listOf(
+        RomanticCategory(
+            name = "Amor",
+            words = listOf(
+                "te amo", "te quiero", "te adoro", "eres mi amor",
+                "mi vida", "mi cielo", "mi corazón", "te amo mucho",
+                "amor mio", "mi amor", "amor"
+            ),
+            effectType = EffectType.HEARTS
+        ),
+        RomanticCategory(
+            name = "Belleza",
+            words = listOf(
+                "eres hermosa", "eres bella", "eres preciosa",
+                "qué linda", "te ves hermosa", "hermosa", "bella",
+                "preciosa", "linda", "bonita"
+            ),
+            effectType = EffectType.STARS
+        ),
+        RomanticCategory(
+            name = "Buenos Días",
+            words = listOf(
+                "buenos días", "buen día", "feliz día",
+                "que tengas lindo día", "buenos días amor",
+                "que amanezcas bien", "buen día amor"
+            ),
+            effectType = EffectType.SUNRISE
+        ),
+        RomanticCategory(
+            name = "Buenas Noches",
+            words = listOf(
+                "buenas noches", "que descanses", "dulces sueños",
+                "que sueñes bonito", "buenas noches amor",
+                "hasta mañana", "que duermas bien"
+            ),
+            effectType = EffectType.MOON
+        ),
+        RomanticCategory(
+            name = "Cumpleaños",
+            words = listOf(
+                "feliz cumpleaños", "feliz cumple", "que cumplas muchos más",
+                "feliz cumpleaños amor", "muchas felicidades"
+            ),
+            effectType = EffectType.CONFETTI
+        ),
+        RomanticCategory(
+            name = "Extrañar",
+            words = listOf(
+                "te extraño", "te echo de menos", "me haces falta",
+                "quiero verte", "extraño", "te necesito"
+            ),
+            effectType = EffectType.CLOUDS
+        ),
+        RomanticCategory(
+            name = "Gracias",
+            words = listOf(
+                "gracias", "gracias mi vida", "mil gracias",
+                "te agradezco", "gracias amor", "muchas gracias"
+            ),
+            effectType = EffectType.FLOWERS
+        ),
+        RomanticCategory(
+            name = "Abrazo",
+            words = listOf(
+                "abrazo", "abrazame", "te abrazo", "abrazos",
+                "abrazo fuerte", "abrazo grande", "abrazote"
+            ),
+            effectType = EffectType.HUG
+        )
     )
-    
-    fun detectWords(text: String): List<RomanticWord> {
-        val lowerText = text.lowercase()
-        return romanticWords.filter { it.word in lowerText }
+
+    /**
+     * Detecta si un mensaje contiene palabras románticas
+     * @return Categoría detectada o null
+     */
+    fun detectCategory(message: String): RomanticCategory? {
+        val lowerMessage = message.lowercase()
+        
+        for (category in categories) {
+            for (word in category.words) {
+                if (lowerMessage.contains(word)) {
+                    Timber.d("RomanticWordsDetector: Detected '${category.name}' in message")
+                    return category
+                }
+            }
+        }
+        
+        return null
     }
-    
-    fun hasRomanticWords(text: String): Boolean {
-        return detectWords(text).isNotEmpty()
+
+    /**
+     * Detecta el tipo de efecto para un mensaje
+     */
+    fun detectEffectType(message: String): EffectType {
+        return detectCategory(message)?.effectType ?: EffectType.NONE
     }
-    
-    fun getEffectForWord(text: String): RomanticEffectType? {
-        return detectWords(text).firstOrNull()?.effect
+
+    /**
+     * Verifica si un mensaje contiene palabras románticas
+     */
+    fun isRomantic(message: String): Boolean {
+        return detectCategory(message) != null
     }
-    
-    fun addCustomWord(word: String, effect: RomanticEffectType, category: WordCategory) {
-        // TODO: Implementar almacenamiento de palabras personalizadas
-        romanticWords.add(RomanticWord(word, effect, category))
+
+    /**
+     * Obtiene todas las palabras de una categoría
+     */
+    fun getWordsByCategory(category: EffectType): List<String> {
+        return categories
+            .filter { it.effectType == category }
+            .flatMap { it.words }
+    }
+
+    /**
+     * Obtiene el total de palabras románticas registradas
+     */
+    fun getTotalWords(): Int {
+        return categories.sumOf { it.words.size }
     }
 }

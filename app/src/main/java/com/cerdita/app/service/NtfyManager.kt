@@ -1,38 +1,61 @@
 package com.cerdita.app.service
 
 import android.content.Context
+import android.content.SharedPreferences
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.*
 import timber.log.Timber
 import java.io.IOException
-import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Gestor principal del sistema de notificaciones Ntfy con 3 topics
+ * Gestor principal del sistema de notificaciones Ntfy
  * 
  * RESPONSABILIDADES:
  * 1. Generar y gestionar 3 topics (1 principal + 2 automáticos)
  * 2. Rotación automática cuando se alcanza el límite (480 mensajes)
- * 3. Envío de notificaciones push a través de HTTP POST
+ * 3. Envío de notificaciones push a través de WebSocket
  * 4. Sincronización automática entre dispositivos
  * 5. Reset diario de contadores cada 24 horas
+ * 
+ * ARQUITECTURA:
+ * - Topic 1: Se genera al inicio y se comparte con la pareja
+ * - Topics 2 y 3: Se generan automáticamente con el mismo suffix
+ * - Ambos dispositivos terminan con los mismos 3 topics
+ * - Rotación automática y sincronizada
  */
 @Singleton
 class NtfyManager @Inject constructor(
-    private val context: Context
+    @ApplicationContext private val context: Context
 ) {
+    // SharedPreferences para persistencia local
+    private val prefs: SharedPreferences = context.getSharedPreferences(
+        PREFS_NAME,
+        Context.MODE_PRIVATE
+    )
+
+    // Cliente HTTP para enviar notificaciones
     private val client = OkHttpClient.Builder()
-        .connectTimeout(30, TimeUnit.SECONDS)
-        .writeTimeout(30, TimeUnit.SECONDS)
-        .readTimeout(0, TimeUnit.MILLISECONDS) // Infinite for long polling
+        .readTimeout(NtfyConfig.WEBSOCKET_READ_TIMEOUT_MS, java.util.concurrent.TimeUnit.MILLISECONDS)
+        .connectTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
+        .writeTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
+        .addInterceptor(HttpLoggingInterceptor().apply {
+            level = HttpLoggingInterceptor.Level.BODY
+        })
         .build()
 
-    // Listeners
+    // Listener para notificar cambios de topic
     var onTopicRotated: ((Int) -> Unit)? = null
+    
+    // Listener para notificar errores
     var onError: ((String) -> Unit)? = null
+
+    // ═══════════════════════════════════════════════════════════════════
+    // INICIALIZACIÓN
+    // ═══════════════════════════════════════════════════════════════════
 
     /**
      * Inicializa el sistema Ntfy
@@ -43,19 +66,29 @@ class NtfyManager @Inject constructor(
         val existingTopic1 = getTopic(0)
         
         if (existingTopic1 == null) {
+            // Primer inicio - generar los 3 topics
             Timber.d("NtfyManager: First launch - generating 3 new topics")
             generateAllTopics()
         } else {
+            // Verificar si Topics 2 y 3 existen
             val existingTopic2 = getTopic(1)
             val existingTopic3 = getTopic(2)
             
             if (existingTopic2 == null || existingTopic3 == null) {
-                Timber.d("NtfyManager: Generating missing topics from Topic 1")
+                // Extraer el suffix del Topic 1 y generar 2 y 3
+                Timber.d("NtfyManager: Generating missing topics from Topic 1 suffix")
                 generateMissingTopicsFromTopic1()
             }
         }
         
+        // Asegurar que hay un índice de topic activo
+        if (!prefs.contains(KEY_ACTIVE_TOPIC_INDEX)) {
+            prefs.edit().putInt(KEY_ACTIVE_TOPIC_INDEX, 0).apply()
+        }
+        
+        // Resetear contadores si pasaron 24 horas
         checkAndResetDaily()
+        
         Timber.d("NtfyManager: Initialization complete")
     }
 
@@ -68,17 +101,16 @@ class NtfyManager @Inject constructor(
         
         repeat(NtfyConfig.TOPIC_POOL_SIZE) { index ->
             val topicName = "${NtfyConfig.TOPIC_PREFIX}-t${index + 1}-$randomSuffix"
-            context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit()
+            prefs.edit()
                 .putString("${KEY_TOPIC_PREFIX}${index}", topicName)
                 .putInt("${KEY_MESSAGE_COUNT_PREFIX}${index}", 0)
                 .apply()
             Timber.d("NtfyManager: Generated topic $index: $topicName")
         }
         
-        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit()
+        prefs.edit()
             .putLong(KEY_RESET_TIME, System.currentTimeMillis())
             .putInt(KEY_SERVER_INDEX, 0)
-            .putInt(KEY_ACTIVE_TOPIC_INDEX, 0)
             .apply()
     }
 
@@ -88,6 +120,7 @@ class NtfyManager @Inject constructor(
     private fun generateMissingTopicsFromTopic1() {
         val topic1 = getTopic(0) ?: return
         
+        // Extraer el suffix del Topic 1
         val suffix = extractSuffixFromTopic(topic1)
         Timber.d("NtfyManager: Extracted suffix from Topic 1: $suffix")
         
@@ -96,9 +129,10 @@ class NtfyManager @Inject constructor(
             return
         }
         
+        // Generar Topics 2 y 3 con el mismo suffix
         for (index in 1 until NtfyConfig.TOPIC_POOL_SIZE) {
             val topicName = "${NtfyConfig.TOPIC_PREFIX}-t${index + 1}-$suffix"
-            context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit()
+            prefs.edit()
                 .putString("${KEY_TOPIC_PREFIX}${index}", topicName)
                 .putInt("${KEY_MESSAGE_COUNT_PREFIX}${index}", 0)
                 .apply()
@@ -106,30 +140,39 @@ class NtfyManager @Inject constructor(
         }
     }
 
+    /**
+     * Extrae el suffix de un topic
+     * Ej: "cerdita-t1-abc12345" → "abc12345"
+     */
     private fun extractSuffixFromTopic(topic: String): String {
         val parts = topic.split("-")
         return if (parts.size >= 3) parts[2] else ""
     }
 
+    /**
+     * Genera un suffix aleatorio de 8 caracteres
+     */
     private fun generateRandomSuffix(): String {
         val chars = "0123456789abcdef"
         return (1..8).map { chars.random() }.joinToString("")
     }
 
+    // ═══════════════════════════════════════════════════════════════════
+    // GESTIÓN DE TOPICS
+    // ═══════════════════════════════════════════════════════════════════
+
     /**
      * Obtiene el nombre de un topic por índice
      */
     fun getTopic(index: Int): String? {
-        return context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-            .getString("${KEY_TOPIC_PREFIX}${index}", null)
+        return prefs.getString("${KEY_TOPIC_PREFIX}${index}", null)
     }
 
     /**
      * Obtiene el índice del topic actualmente activo
      */
     fun getActiveTopicIndex(): Int {
-        return context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-            .getInt(KEY_ACTIVE_TOPIC_INDEX, 0)
+        return prefs.getInt(KEY_ACTIVE_TOPIC_INDEX, 0)
     }
 
     /**
@@ -144,8 +187,7 @@ class NtfyManager @Inject constructor(
      * Obtiene el servidor actualmente activo
      */
     fun getActiveServer(): NtfyServer? {
-        val serverIndex = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-            .getInt(KEY_SERVER_INDEX, 0)
+        val serverIndex = prefs.getInt(KEY_SERVER_INDEX, 0)
         return NtfyConfig.servers.getOrElse(serverIndex) { NtfyConfig.servers.firstOrNull() }
     }
 
@@ -157,14 +199,23 @@ class NtfyManager @Inject constructor(
             .mapNotNull { index -> getTopic(index) }
     }
 
+    // ═══════════════════════════════════════════════════════════════════
+    // ROTACIÓN AUTOMÁTICA DE TOPICS
+    // ═══════════════════════════════════════════════════════════════════
+
     /**
      * Verifica si se debe rotar al siguiente topic
      */
     private fun shouldRotate(): Boolean {
         val currentIndex = getActiveTopicIndex()
-        val messageCount = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-            .getInt("${KEY_MESSAGE_COUNT_PREFIX}${currentIndex}", 0)
-        return messageCount >= NtfyConfig.MESSAGES_PER_TOPIC_LIMIT
+        val messageCount = prefs.getInt("${KEY_MESSAGE_COUNT_PREFIX}${currentIndex}", 0)
+        val shouldRotate = messageCount >= NtfyConfig.MESSAGES_PER_TOPIC_LIMIT
+        
+        if (shouldRotate) {
+            Timber.d("NtfyManager: Should rotate - count: $messageCount, limit: ${NtfyConfig.MESSAGES_PER_TOPIC_LIMIT}")
+        }
+        
+        return shouldRotate
     }
 
     /**
@@ -176,12 +227,29 @@ class NtfyManager @Inject constructor(
         
         Timber.d("NtfyManager: Rotating from topic $currentIndex to topic $nextIndex")
         
-        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit()
+        prefs.edit()
             .putInt(KEY_ACTIVE_TOPIC_INDEX, nextIndex)
             .apply()
         
+        // Notificar listeners
         onTopicRotated?.invoke(nextIndex)
+        
+        // Reiniciar el servicio WebSocket con el nuevo topic
+        restartNtfyService()
     }
+
+    /**
+     * Reinicia el servicio Ntfy con el nuevo topic
+     */
+    private fun restartNtfyService() {
+        Timber.d("NtfyManager: Restarting NtfyService")
+        NtfyService.stop(context)
+        NtfyService.start(context)
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
+    // ENVÍO DE MENSAJES
+    // ═══════════════════════════════════════════════════════════════════
 
     /**
      * Envía una notificación push a través de Ntfy
@@ -193,6 +261,7 @@ class NtfyManager @Inject constructor(
         tags: List<String> = NtfyConfig.DEFAULT_TAGS
     ): Result<Unit> = withContext(Dispatchers.IO) {
         try {
+            // Verificar rotación ANTES de enviar
             if (shouldRotate()) {
                 Timber.d("NtfyManager: Rotating topic before send")
                 rotateToNextTopic()
@@ -206,8 +275,10 @@ class NtfyManager @Inject constructor(
 
             Timber.d("NtfyManager: Sending message to topic: $topic, server: ${server.name}")
 
+            // Construir payload JSON
             val jsonBody = buildNtfyJson(title, message, priority, tags)
 
+            // Crear petición HTTP
             val request = Request.Builder()
                 .url("${server.httpUrl}/")
                 .post(RequestBody.create(
@@ -216,17 +287,22 @@ class NtfyManager @Inject constructor(
                 ))
                 .build()
 
+            // Ejecutar petición
             val response = client.newCall(request).execute()
 
             if (response.isSuccessful) {
+                // Incrementar contador del topic activo
                 incrementMessageCount()
                 Timber.d("NtfyManager: Message sent successfully")
                 Result.success(Unit)
             } else {
+                // Manejar errores del servidor
                 Timber.e("NtfyManager: Server error: ${response.code}")
                 
                 if (response.code >= 500) {
+                    // Error del servidor - rotar a otro servidor
                     rotateServer()
+                    // Reintentar con nuevo servidor
                     return@withContext sendMessage(title, message, priority, tags)
                 }
                 
@@ -239,6 +315,9 @@ class NtfyManager @Inject constructor(
         }
     }
 
+    /**
+     * Construye el payload JSON para Ntfy
+     */
     private fun buildNtfyJson(
         title: String,
         message: String,
@@ -257,9 +336,11 @@ class NtfyManager @Inject constructor(
         """.trimIndent()
     }
 
+    /**
+     * Incrementa el contador de mensajes del topic activo
+     */
     private fun incrementMessageCount() {
         val currentIndex = getActiveTopicIndex()
-        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         val currentCount = prefs.getInt("${KEY_MESSAGE_COUNT_PREFIX}${currentIndex}", 0)
         prefs.edit()
             .putInt("${KEY_MESSAGE_COUNT_PREFIX}${currentIndex}", currentCount + 1)
@@ -267,36 +348,53 @@ class NtfyManager @Inject constructor(
         Timber.d("NtfyManager: Message count for topic $currentIndex: ${currentCount + 1}")
     }
 
+    // ═══════════════════════════════════════════════════════════════════
+    // GESTIÓN DE SERVIDORES
+    // ═══════════════════════════════════════════════════════════════════
+
+    /**
+     * Rota al siguiente servidor en la lista
+     */
     private fun rotateServer() {
-        val currentIndex = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-            .getInt(KEY_SERVER_INDEX, 0)
+        val currentIndex = prefs.getInt(KEY_SERVER_INDEX, 0)
         val newIndex = (currentIndex + 1) % NtfyConfig.servers.size
-        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit()
+        prefs.edit()
             .putInt(KEY_SERVER_INDEX, newIndex)
             .apply()
         Timber.d("NtfyManager: Rotated server from $currentIndex to $newIndex")
     }
 
+    // ═══════════════════════════════════════════════════════════════════
+    // RESET DIARIO
+    // ═══════════════════════════════════════════════════════════════════
+
+    /**
+     * Verifica y resetea los contadores si pasaron 24 horas
+     */
     private fun checkAndResetDaily() {
-        val lastReset = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-            .getLong(KEY_RESET_TIME, 0)
+        val lastReset = prefs.getLong(KEY_RESET_TIME, 0)
         val now = System.currentTimeMillis()
         val hoursSinceReset = (now - lastReset) / (1000 * 60 * 60)
 
         if (hoursSinceReset >= 24) {
             Timber.d("NtfyManager: Resetting daily counters (${hoursSinceReset}h since last reset)")
             
+            // Resetear TODOS los contadores de topics
             repeat(NtfyConfig.TOPIC_POOL_SIZE) { index ->
-                context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit()
+                prefs.edit()
                     .putInt("${KEY_MESSAGE_COUNT_PREFIX}${index}", 0)
                     .apply()
             }
             
-            context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit()
+            prefs.edit()
                 .putLong(KEY_RESET_TIME, now)
                 .apply()
         }
     }
+
+    // ═══════════════════════════════════════════════════════════════════
+    // COMPARTIR TOPICS CON LA PAREJA
+    // ═══════════════════════════════════════════════════════════════════
 
     /**
      * Obtiene solo el Topic 1 para compartir con la pareja
@@ -311,14 +409,17 @@ class NtfyManager @Inject constructor(
     fun setTopic1FromPartner(topic1: String) {
         Timber.d("NtfyManager: Setting Topic 1 from partner: $topic1")
         
-        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit()
+        // Guardar Topic 1
+        prefs.edit()
             .putString("${KEY_TOPIC_PREFIX}0", topic1)
             .putInt("${KEY_MESSAGE_COUNT_PREFIX}0", 0)
             .apply()
         
+        // Generar Topics 2 y 3 automáticamente
         generateMissingTopicsFromTopic1()
         
-        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit()
+        // Resetear tiempo y activar Topic 1
+        prefs.edit()
             .putInt(KEY_ACTIVE_TOPIC_INDEX, 0)
             .putLong(KEY_RESET_TIME, System.currentTimeMillis())
             .apply()
@@ -326,11 +427,14 @@ class NtfyManager @Inject constructor(
         Timber.d("NtfyManager: Topics 2 and 3 generated automatically")
     }
 
+    // ═══════════════════════════════════════════════════════════════════
+    // ESTADÍSTICAS
+    // ═══════════════════════════════════════════════════════════════════
+
     /**
      * Obtiene estadísticas completas del sistema Ntfy
      */
     fun getStats(): NtfyStats {
-        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         val currentIndex = getActiveTopicIndex()
         val messageCount = prefs.getInt("${KEY_MESSAGE_COUNT_PREFIX}${currentIndex}", 0)
         val lastReset = prefs.getLong(KEY_RESET_TIME, 0)
@@ -360,14 +464,28 @@ class NtfyManager @Inject constructor(
         )
     }
 
+    // ═══════════════════════════════════════════════════════════════════
+    // UTILIDADES
+    // ═══════════════════════════════════════════════════════════════════
+
+    /**
+     * Limpia todos los datos de Ntfy
+     */
     fun clearAllData() {
         Timber.d("NtfyManager: Clearing all data")
-        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit().clear().apply()
+        prefs.edit().clear().apply()
     }
 
+    /**
+     * Verifica si el sistema está inicializado
+     */
     fun isInitialized(): Boolean {
         return getTopic(0) != null
     }
+
+    // ═══════════════════════════════════════════════════════════════════
+    // CONSTANTES
+    // ═══════════════════════════════════════════════════════════════════
 
     companion object {
         private const val PREFS_NAME = "cerdita_ntfy"

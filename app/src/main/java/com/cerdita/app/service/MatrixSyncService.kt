@@ -1,27 +1,20 @@
 package com.cerdita.app.service
 
-import android.app.NotificationChannel
-import android.app.NotificationManager
-import android.app.PendingIntent
 import android.app.Service
-import android.content.Context
 import android.content.Intent
-import android.os.Build
 import android.os.IBinder
-import androidx.core.app.NotificationCompat
-import com.cerdita.app.MainActivity
-import com.cerdita.app.R
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.*
+import timber.log.Timber
 import javax.inject.Inject
 
 /**
- * Servicio para sincronización en background con Matrix
+ * Servicio para sincronización en segundo plano con Matrix
  * 
- * Se ejecuta en segundo plano para:
- * - Escuchar mensajes entrantes
- * - Sincronizar estados
- * - Actualizar indicadores de lectura
+ * RESPONSABILIDADES:
+ * 1. Sincronizar mensajes periódicamente
+ * 2. Actualizar estados de mensajes (delivered, read)
+ * 3. Ejecutarse en background con WorkManager
  */
 @AndroidEntryPoint
 class MatrixSyncService : Service() {
@@ -30,97 +23,78 @@ class MatrixSyncService : Service() {
     lateinit var ntfyManager: NtfyManager
 
     private val serviceScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
-    
+
     companion object {
-        private const val NOTIFICATION_CHANNEL_ID = "matrix_sync"
-        private const val NOTIFICATION_ID = 1003
-        
-        fun start(context: Context) {
-            val intent = Intent(context, MatrixSyncService::class.java)
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                context.startForegroundService(intent)
-            } else {
-                context.startService(intent)
-            }
-        }
-        
-        fun stop(context: Context) {
-            val intent = Intent(context, MatrixSyncService::class.java)
-            context.stopService(intent)
-        }
+        private const val SYNC_INTERVAL_MS = 5 * 60 * 1000L // 5 minutos
     }
 
     override fun onCreate() {
         super.onCreate()
-        createNotificationChannel()
+        Timber.d("MatrixSyncService: onCreate")
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        Timber.d("MatrixSyncService: onStartCommand")
+        
         when (intent?.action) {
-            "START_SYNC" -> startSyncing()
-            "STOP_SYNC" -> stopSyncing()
+            ACTION_SYNC_NOW -> performSync()
+            ACTION_STOP -> stopSelf()
         }
-        return START_STICKY
-    }
-
-    override fun onDestroy() {
-        super.onDestroy()
-        stopSyncing()
-        serviceScope.cancel()
+        
+        return START_NOT_STICKY
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
 
-    private fun startSyncing() {
-        showNotification("Sincronizando mensajes...")
-        
+    override fun onDestroy() {
+        Timber.d("MatrixSyncService: onDestroy")
+        super.onDestroy()
+        serviceScope.cancel()
+    }
+
+    /**
+     * Realiza la sincronización con Matrix
+     */
+    private fun performSync() {
         serviceScope.launch {
-            // TODO: Implementar sync real con Matrix SDK
-            // Mientras tanto, mantener el servicio activo
-            delay(60000) // Sync cada minuto
-            showNotification("Escuchando mensajes...")
-        }
-    }
-
-    private fun stopSyncing() {
-        stopForeground(STOP_FOREGROUND_REMOVE)
-        stopSelf()
-    }
-
-    private fun createNotificationChannel() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channel = NotificationChannel(
-                NOTIFICATION_CHANNEL_ID,
-                "Sincronización Matrix",
-                NotificationManager.IMPORTANCE_LOW
-            ).apply {
-                description = "Sincronización de mensajes en segundo plano"
-                setShowBadge(false)
+            try {
+                Timber.d("MatrixSyncService: Performing sync...")
+                
+                // TODO: Implementar sync real con Matrix SDK
+                // val matrixClient = matrixClientProvider.get()
+                // matrixClient.syncMessages()
+                
+                Timber.d("MatrixSyncService: Sync completed")
+            } catch (e: Exception) {
+                Timber.e(e, "MatrixSyncService: Sync failed")
             }
-            val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-            manager.createNotificationChannel(channel)
         }
     }
 
-    private fun showNotification(content: String) {
-        val intent = Intent(this, MainActivity::class.java).apply {
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+    companion object {
+        private const val ACTION_SYNC_NOW = "com.cerdita.app.SYNC_NOW"
+        private const val ACTION_STOP = "com.cerdita.app.STOP_SYNC"
+
+        /**
+         * Inicia sincronización inmediata
+         */
+        fun syncNow(context: Context) {
+            Intent(context, MatrixSyncService::class.java).apply {
+                action = ACTION_SYNC_NOW
+                context.startService(this)
+            }
+            Timber.d("MatrixSyncService: Sync requested")
         }
 
-        val pendingIntent = PendingIntent.getActivity(
-            this, 0, intent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
-
-        val notification = NotificationCompat.Builder(this, NOTIFICATION_CHANNEL_ID)
-            .setSmallIcon(R.drawable.ic_notification)
-            .setContentTitle("Cerdita 💕")
-            .setContentText(content)
-            .setPriority(NotificationCompat.PRIORITY_LOW)
-            .setOngoing(true)
-            .setContentIntent(pendingIntent)
-            .build()
-
-        startForeground(NOTIFICATION_ID, notification)
+        /**
+         * Detiene el servicio
+         */
+        fun stop(context: Context) {
+            Intent(context, MatrixSyncService::class.java).apply {
+                action = ACTION_STOP
+                context.startService(this)
+            }
+            Timber.d("MatrixSyncService: Stop requested")
+        }
     }
 }
