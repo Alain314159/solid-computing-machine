@@ -1,29 +1,31 @@
 # 🐷🤗🐨 CERDITA 💕 - DOCUMENTO MAESTRO PARA IA
-## Guía Completa de Desarrollo (Matrix + Kotlin + Jetpack Compose)
+## Guía Completa de Implementación con Notificaciones Ntfy
 
 ---
 
 ## 📋 ÍNDICE
 
 1. [Información General del Proyecto](#1-información-general-del-proyecto)
-2. [Características Completas de la App](#2-características-completas-de-la-app)
-3. [🚀 Mejoras, Optimizaciones y Features Adicionales](#3--mejoras-optimizaciones-y-features-adicionales)
-   - [3.1 UI/UX](#31--uiux)
-   - [3.2 Seguridad](#32--seguridad)
-   - [3.3 Rendimiento](#33--rendimiento)
-   - [3.4 Features Románticos](#34--features-románticos)
-   - [3.5 IA/ML](#35--iaml)
-   - [3.6 Gamificación](#36--gamificación)
-   - [3.7 Arquitectura Técnica](#37--arquitectura-técnica)
-   - [3.8 Features Nuevos (TOP 15)](#38--features-nuevos-top-15)
-   - [3.9 Dependencias Adicionales](#39--dependencias-adicionales)
-   - [3.10 Documento Actualizado para IA](#310--documento-actualizado-para-ia)
-4. [Stack Tecnológico](#4-stack-tecnológico)
-5. [Estructura de Carpetas](#5-estructura-de-carpetas)
-6. [Dependencias Completas](#6-dependencias-completas)
-7. [Código Base Mínimo Funcional](#7-código-base-mínimo-funcional)
-8. [Orden de Implementación](#8-orden-de-implementación)
-9. [Checklist de Verificación](#9-checklist-de-verificación)
+2. [Sistema de Notificaciones (IMPORTANTE)](#2-sistema-de-notificaciones)
+3. [Características Completas de la App](#3-características-completas-de-la-app)
+4. [🚀 Mejoras, Optimizaciones y Features Adicionales](#4--mejoras-optimizaciones-y-features-adicionales)
+   - [4.1 UI/UX](#41--uiux)
+   - [4.2 Seguridad](#42--seguridad)
+   - [4.3 Rendimiento](#43--rendimiento)
+   - [4.4 Features Románticos](#44--features-románticos)
+   - [4.5 IA/ML](#45--iaml)
+   - [4.6 Gamificación](#46--gamificación)
+   - [4.7 Arquitectura Técnica](#47--arquitectura-técnica)
+   - [4.8 Features Nuevos (TOP 15)](#48--features-nuevos-top-15)
+   - [4.9 Dependencias Adicionales](#49--dependencias-adicionales)
+   - [4.10 Documento Actualizado para IA](#410--documento-actualizado-para-ia)
+5. [Stack Tecnológico](#5-stack-tecnológico)
+6. [Estructura de Carpetas](#6-estructura-de-carpetas)
+7. [Dependencias Completas](#7-dependencias-completas)
+8. [Código de Notificaciones Ntfy](#8-código-de-notificaciones-ntfy)
+9. [Código Base Matrix](#9-código-base-matrix)
+10. [Orden de Implementación](#10-orden-de-implementación)
+11. [Checklist de Verificación](#11-checklist-de-verificación)
 
 ---
 
@@ -35,21 +37,66 @@
 ├─────────────────────────────────────────────────────────────────────────┤
 │  Nombre:           Cerdita 💕                                           │
 │  Paquete:          com.cerdita.app                                      │
-│  Protocolo:        MATRIX (NO Nostr)                                    │
+│  Protocolo:        MATRIX (servidor: matrix.org)                        │
+│  Notificaciones:   NTFY.SH (1 WebSocket, 1 topic activo)                │
 │  Lenguaje:         Kotlin 100%                                          │
 │  UI Framework:     Jetpack Compose + Material 3                         │
 │  Min SDK:          Android 8.0 (API 26)                                 │
 │  Target SDK:       Android 15 (API 35)                                  │
 │  Usuarios:         2 (pareja)                                           │
-│  Servidor:         matrix.org (público, gratuito)                       │
-│  Costo:            $0                                                   │
-│  Tiempo Est.:      16 semanas                                           │
+│  Costo:            $0 (gratis)                                          │
 └─────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## 2. CARACTERÍSTICAS COMPLETAS DE LA APP
+## 2. SISTEMA DE NOTIFICACIONES (CRÍTICO)
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│  ARQUITECTURA DE NOTIFICACIONES - NTFY.SH                               │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                         │
+│  ⚠️ IMPORTANTE: NO USAR FIREBASE, NO USAR UNIFIEDPUSH                  │
+│                                                                         │
+│  ┌──────────────┐         ┌──────────────┐         ┌──────────────┐   │
+│  │   CERDITA    │────────►│   ntfy.sh    │────────►│   CERDITA    │   │
+│  │   App (tú)   │  Envía  │   (servidor  │  Recibe │   App        │   │
+│  │              │         │    público)  │         │   (novia)    │   │
+│  └──────────────┘         └──────────────┘         └──────────────┘   │
+│                                                                         │
+│  ─────────────────────────────────────────────────────────────────────  │
+│                                                                         │
+│  CONFIGURACIÓN:                                                         │
+│  • 1 SOLA conexión WebSocket por dispositivo                           │
+│  • 1 SOLA topic activo (ej: cerdita-abc123def456)                      │
+│  • 500 mensajes/día por topic (SUFICIENTE para 2 personas)             │
+│  • Rotación automática de topic si se acerca al límite                 │
+│  • Backup de servidores si uno falla                                   │
+│                                                                         │
+│  ─────────────────────────────────────────────────────────────────────  │
+│                                                                         │
+│  FLUJO DE CONFIGURACIÓN INICIAL:                                        │
+│  1. App genera topic aleatorio al primer inicio                        │
+│  2. Usuario copia el topic y lo comparte con su pareja                 │
+│  3. Pareja pega el topic en Configuración → Notificaciones             │
+│  4. Ambos escuchan el MISMO topic                                      │
+│  5. Cuando uno envía mensaje Matrix → notifica por ntfy                │
+│  6. El otro recibe notificación y hace sync con Matrix                 │
+│                                                                         │
+│  ─────────────────────────────────────────────────────────────────────  │
+│                                                                         │
+│  SERVIDORES NTFY DISPONIBLES:                                           │
+│  • Principal: https://ntfy.sh                                          │
+│  • Backup 1: https://ntfy.services                                     │
+│  • Backup 2: https://push.terminal.email                               │
+│                                                                         │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## 3. CARACTERÍSTICAS COMPLETAS DE LA APP
 
 ### 2.1 AUTENTICACIÓN MATRIX
 
@@ -635,7 +682,7 @@ debugImplementation("com.github.chuckerteam.chucker:library:4.0.0")
 
 ---
 
-## 4. STACK TECNOLÓGICO
+## 5. STACK TECNOLÓGICO
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────┐
@@ -665,12 +712,12 @@ debugImplementation("com.github.chuckerteam.chucker:library:4.0.0")
 │                                                                         │
 │  RED:                                                                   │
 │  • Matrix Android SDK2 0.9.26                                           │
-│  • Firebase Cloud Messaging (notificaciones)                            │
-│  • UnifiedPush 5.0.0                                                    │
+│  • OkHttp 4.12.0 (para ntfy WebSocket)                                  │
+│  • Gson 2.11.0 (serialización)                                          │
 │                                                                         │
 │  BACKGROUND:                                                            │
-│  • WorkManager 2.10.0 (sync en background)                              │
-│  • Foreground Service (sync continuo)                                   │
+│  • Foreground Service (ntfy WebSocket)                                  │
+│  • WorkManager 2.10.0 (sync fallback)                                   │
 │                                                                         │
 │  SEGURIDAD:                                                             │
 │  • Security Crypto 1.1.0-alpha06                                        │
@@ -681,7 +728,7 @@ debugImplementation("com.github.chuckerteam.chucker:library:4.0.0")
 
 ---
 
-## 5. ESTRUCTURA DE CARPETAS
+## 6. ESTRUCTURA DE CARPETAS
 
 ```
 app/
@@ -697,57 +744,40 @@ app/
 │   │   │   │   │   ├── dao/
 │   │   │   │   │   │   ├── MessageDao.kt
 │   │   │   │   │   │   ├── UserDao.kt
-│   │   │   │   │   │   ├── SettingsDao.kt
-│   │   │   │   │   │   └── EventDao.kt
+│   │   │   │   │   │   └── SettingsDao.kt
 │   │   │   │   │   └── entity/
 │   │   │   │   │       ├── MessageEntity.kt
 │   │   │   │   │       ├── UserEntity.kt
-│   │   │   │   │       ├── SettingsEntity.kt
-│   │   │   │   │       └── EventEntity.kt
-│   │   │   │   ├── preferences/
-│   │   │   │   │   ├── AuthPreferences.kt
-│   │   │   │   │   └── SettingsPreferences.kt
-│   │   │   │   └── repository/
-│   │   │   │       ├── LocalMessageRepository.kt
-│   │   │   │       ├── LocalUserRepository.kt
-│   │   │   │       └── LocalSettingsRepository.kt
+│   │   │   │   │       └── SettingsEntity.kt
+│   │   │   │   └── preferences/
+│   │   │   │       ├── AuthPreferences.kt
+│   │   │   │       └── NtfyPreferences.kt
 │   │   │   │
 │   │   │   ├── remote/
 │   │   │   │   ├── matrix/
 │   │   │   │   │   ├── MatrixClient.kt
 │   │   │   │   │   ├── MatrixAuth.kt
 │   │   │   │   │   ├── MatrixRoom.kt
-│   │   │   │   │   ├── MatrixSync.kt
-│   │   │   │   │   └── MatrixMedia.kt
-│   │   │   │   └── api/
-│   │   │   │       ├── AuthApi.kt
-│   │   │   │       ├── RoomApi.kt
-│   │   │   │       ├── MessageApi.kt
-│   │   │   │       └── MediaApi.kt
+│   │   │   │   │   └── MatrixSync.kt
+│   │   │   │   └── ntfy/
+│   │   │   │       ├── NtfyManager.kt
+│   │   │   │       └── NtfyConfig.kt
 │   │   │   │
 │   │   │   ├── model/
 │   │   │   │   ├── Message.kt
 │   │   │   │   ├── User.kt
-│   │   │   │   ├── Room.kt
-│   │   │   │   ├── Attachment.kt
-│   │   │   │   └── Event.kt
+│   │   │   │   └── Room.kt
 │   │   │   │
 │   │   │   └── repository/
 │   │   │       ├── AuthRepository.kt
 │   │   │       ├── MessageRepository.kt
-│   │   │       ├── RoomRepository.kt
-│   │   │       └── SettingsRepository.kt
+│   │   │       └── NtfyRepository.kt
 │   │   │
 │   │   ├── domain/
 │   │   │   ├── usecase/
 │   │   │   │   ├── LoginUseCase.kt
-│   │   │   │   ├── RegisterUseCase.kt
 │   │   │   │   ├── SendMessageUseCase.kt
-│   │   │   │   ├── ReceiveMessagesUseCase.kt
-│   │   │   │   ├── SyncRoomUseCase.kt
-│   │   │   │   ├── SendMediaUseCase.kt
-│   │   │   │   ├── SendVoiceNoteUseCase.kt
-│   │   │   │   └── GetEventsUseCase.kt
+│   │   │   │   └── SyncRoomUseCase.kt
 │   │   │   └── model/
 │   │   │       └── Result.kt
 │   │   │
@@ -755,10 +785,63 @@ app/
 │   │   │   ├── ui/
 │   │   │   │   ├── theme/
 │   │   │   │   │   ├── Theme.kt
-│   │   │   │   │   ├── Color.kt
-│   │   │   │   │   ├── Type.kt
-│   │   │   │   │   └── ThemeType.kt
+│   │   │   │   │   └── Color.kt
 │   │   │   │   ├── components/
+│   │   │   │   │   ├── MessageBubble.kt
+│   │   │   │   │   ├── InputField.kt
+│   │   │   │   │   └── HugButton.kt
+│   │   │   │   └── screens/
+│   │   │   │       ├── welcome/
+│   │   │   │       │   └── WelcomeScreen.kt
+│   │   │   │       ├── auth/
+│   │   │   │       │   ├── LoginScreen.kt
+│   │   │   │       │   └── RegisterScreen.kt
+│   │   │   │       ├── chat/
+│   │   │   │       │   ├── ChatScreen.kt
+│   │   │   │       │   └── ChatViewModel.kt
+│   │   │   │       ├── settings/
+│   │   │   │       │   ├── SettingsScreen.kt
+│   │   │   │       │   └── SettingsViewModel.kt
+│   │   │   │       └── notifications/
+│   │   │   │           └── NotificationsScreen.kt
+│   │   │   │
+│   │   │   └── viewmodel/
+│   │   │       ├── AuthViewModel.kt
+│   │   │       ├── ChatViewModel.kt
+│   │   │       └── SettingsViewModel.kt
+│   │   │
+│   │   ├── di/
+│   │   │   ├── AppModule.kt
+│   │   │   ├── NetworkModule.kt
+│   │   │   └── DatabaseModule.kt
+│   │   │
+│   │   ├── util/
+│   │   │   ├── Constants.kt
+│   │   │   └── Extensions.kt
+│   │   │
+│   │   └── service/
+│   │       ├── NtfyService.kt
+│   │       └── MatrixSyncService.kt
+│   │
+│   ├── res/
+│   │   ├── drawable/
+│   │   │   ├── ic_pig.xml
+│   │   │   ├── ic_koala.xml
+│   │   │   ├── ic_heart.xml
+│   │   │   └── ic_notification.xml
+│   │   ├── raw/
+│   │   │   └── anim_hug.json
+│   │   └── values/
+│   │       ├── strings.xml
+│   │       ├── colors.xml
+│   │       └── themes.xml
+│   │
+│   └── AndroidManifest.xml
+│
+├── build.gradle.kts (app)
+├── build.gradle.kts (project)
+└── settings.gradle.kts
+```
 │   │   │   │   │   ├── MessageBubble.kt
 │   │   │   │   │   ├── InputField.kt
 │   │   │   │   │   ├── HugButton.kt
