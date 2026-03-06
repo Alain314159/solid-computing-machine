@@ -1,6 +1,8 @@
 package com.cerdita.app.presentation.ui.components
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -25,12 +27,21 @@ fun EventCard(
     }
     
     val daysUntil = (event.date - System.currentTimeMillis()) / (1000 * 60 * 60 * 24)
+    val isToday = daysUntil == 0L
+    val isPast = daysUntil < 0L
     
     Card(
         modifier = modifier
             .fillMaxWidth()
             .padding(vertical = 4.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = if (isToday) {
+                MaterialTheme.colorScheme.primaryContainer
+            } else {
+                MaterialTheme.colorScheme.surface
+            }
+        )
     ) {
         Row(
             modifier = Modifier
@@ -54,6 +65,15 @@ fun EventCard(
                     style = MaterialTheme.typography.titleMedium
                 )
                 
+                if (event.description.isNotBlank()) {
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = event.description,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                
                 Spacer(modifier = Modifier.height(4.dp))
                 
                 Text(
@@ -62,15 +82,23 @@ fun EventCard(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 
-                if (daysUntil >= 0) {
+                if (!isPast) {
+                    Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        text = if (daysUntil == 0L) "¡Es hoy!" else "Faltan $daysUntil días",
+                        text = if (isToday) {
+                            "¡Es hoy! 🎉"
+                        } else if (daysUntil == 1L) {
+                            "¡Mañana! 🌟"
+                        } else {
+                            "Faltan $daysUntil días"
+                        },
                         style = MaterialTheme.typography.bodySmall,
                         color = if (daysUntil <= 7) {
-                            MaterialTheme.colorScheme.error
-                        } else {
                             MaterialTheme.colorScheme.primary
-                        }
+                        } else {
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                        },
+                        fontWeight = if (isToday || daysUntil == 1L) FontWeight.Bold else FontWeight.Normal
                     )
                 }
             }
@@ -78,8 +106,9 @@ fun EventCard(
             onDelete?.let {
                 IconButton(onClick = it) {
                     Icon(
-                        imageVector = androidx.compose.material.icons.Icons.Default.Delete,
-                        contentDescription = "Eliminar"
+                        imageVector = Icons.Default.Delete,
+                        contentDescription = "Eliminar",
+                        tint = MaterialTheme.colorScheme.error
                     )
                 }
             }
