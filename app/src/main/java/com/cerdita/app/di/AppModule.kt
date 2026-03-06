@@ -3,8 +3,7 @@ package com.cerdita.app.di
 import android.content.Context
 import androidx.room.Room
 import com.cerdita.app.data.local.database.AppDatabase
-import com.cerdita.app.data.local.database.dao.EventDao
-import com.cerdita.app.data.local.database.dao.MessageDao
+import com.cerdita.app.data.local.database.dao.*
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -22,7 +21,7 @@ class AppModule {
         return Room.databaseBuilder(
             context.applicationContext,
             AppDatabase::class.java,
-            "cerdita_database"
+            AppDatabase.DATABASE_NAME
         )
             .fallbackToDestructiveMigration()
             .build()
@@ -38,5 +37,17 @@ class AppModule {
     @Singleton
     fun provideEventDao(database: AppDatabase): EventDao {
         return database.eventDao()
+    }
+
+    @Provides
+    @Singleton
+    fun provideUserDao(database: AppDatabase): UserDao {
+        return database.userDao()
+    }
+
+    @Provides
+    @Singleton
+    fun provideSettingsDao(database: AppDatabase): SettingsDao {
+        return database.settingsDao()
     }
 }
