@@ -1,4 +1,4 @@
-usarlosNayeliNayeli🐨 CERDITA 💕
+🐨 CERDITA 💕
 
 **La app de chat romántico para parejas**
 
