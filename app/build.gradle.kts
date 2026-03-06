@@ -79,12 +79,13 @@ dependencies {
     // MATRIX SDK
     // ═══════════════════════════════════════════════════════════════════
     implementation("io.element.android:matrix-android-sdk2:0.9.26")
-    
+
     // ═══════════════════════════════════════════════════════════════════
-    // NETWORK (OkHttp + JSON)
+    // NTFY NOTIFICATIONS (OKHTTP + GSON)
     // ═══════════════════════════════════════════════════════════════════
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
-    implementation("org.json:json:20240303")
+    implementation("com.squareup.okhttp3:logging-interceptor:4.12.0")
+    implementation("com.google.code.gson:gson:2.11.0")
 
     // ═══════════════════════════════════════════════════════════════════
     // ROOM DATABASE

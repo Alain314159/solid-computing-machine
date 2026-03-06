@@ -13,12 +13,13 @@ import com.cerdita.app.presentation.ui.theme.ThemeType
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
-    onLogout: () -> Unit
+    onLogout: () -> Unit,
+    onNavigateToNotifications: () -> Unit
 ) {
     var selectedTheme by remember { mutableStateOf(ThemeType.CERDITA) }
     var notificationsEnabled by remember { mutableStateOf(true) }
     var romanticEffectsEnabled by remember { mutableStateOf(true) }
-    
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -34,7 +35,16 @@ fun SettingsScreen(
             colors = TopAppBarDefaults.topAppBarColors(
                 containerColor = MaterialTheme.colorScheme.primary,
                 titleContentColor = MaterialTheme.colorScheme.onPrimary
-            )
+            ),
+            actions = {
+                IconButton(onClick = onNavigateToNotifications) {
+                    Icon(
+                        androidx.compose.material.icons.Icons.Default.Notifications,
+                        contentDescription = "Notificaciones",
+                        tint = MaterialTheme.colorScheme.onPrimary
+                    )
+                }
+            }
         )
         
         Column(

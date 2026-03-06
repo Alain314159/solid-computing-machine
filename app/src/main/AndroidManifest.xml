@@ -49,6 +49,13 @@
             </intent-filter>
         </activity>
 
+        <!-- Ntfy Service -->
+        <service
+            android:name=".service.NtfyService"
+            android:enabled="true"
+            android:exported="false"
+            android:foregroundServiceType="dataSync" />
+
         <!-- Sync Service -->
         <service
             android:name=".service.SyncService"

@@ -3,6 +3,7 @@ package com.cerdita.app.data.remote.matrix
 import android.content.Context
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
+import com.cerdita.app.service.NtfyManager
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import javax.inject.Inject
@@ -10,7 +11,8 @@ import javax.inject.Singleton
 
 @Singleton
 class MatrixClient @Inject constructor(
-    private val context: Context
+    @ApplicationContext private val context: Context,
+    private val ntfyManager: NtfyManager
 ) {
     private val _sessionState = MutableStateFlow<SessionState>(SessionState.Disconnected)
     val sessionState: Flow<SessionState> = _sessionState
@@ -99,6 +101,9 @@ class MatrixClient @Inject constructor(
                 _userId.value = userId
                 _sessionState.value = SessionState.Connected
                 
+                // Iniciar NtfyService después del login
+                NtfyService.start(context)
+                
                 Result.success(userId)
             } else {
                 Result.failure(Exception("Login fallido: ${response.code}"))
@@ -119,6 +124,10 @@ class MatrixClient @Inject constructor(
 
             _userId.value = userId
             _sessionState.value = SessionState.Connected
+            
+            // Iniciar NtfyService si hay sesión existente
+            NtfyService.start(context)
+            
             Result.success(Unit)
         } catch (e: Exception) {
             Result.failure(e)
@@ -143,6 +152,9 @@ class MatrixClient @Inject constructor(
     }
 
     fun logout() {
+        // Detener NtfyService al cerrar sesión
+        NtfyService.stop(context)
+        
         encryptedPrefs.edit().clear().apply()
         _userId.value = null
         _sessionState.value = SessionState.Disconnected

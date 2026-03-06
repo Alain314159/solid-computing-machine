@@ -13,6 +13,7 @@ import androidx.navigation.compose.rememberNavController
 import com.cerdita.app.presentation.ui.navigation.Screen
 import com.cerdita.app.presentation.ui.screens.calendar.CalendarScreen
 import com.cerdita.app.presentation.ui.screens.chat.ChatScreen
+import com.cerdita.app.presentation.ui.screens.notifications.NotificationsScreen
 import com.cerdita.app.presentation.ui.screens.settings.SettingsScreen
 
 sealed class BottomNavItem(
@@ -73,7 +74,15 @@ fun MainScreen(
                 CalendarScreen()
             }
             composable(BottomNavItem.Settings.route) {
-                SettingsScreen(onLogout = onLogout)
+                SettingsScreen(
+                    onLogout = onLogout,
+                    onNavigateToNotifications = {
+                        bottomNavController.navigate("notifications")
+                    }
+                )
+            }
+            composable("notifications") {
+                NotificationsScreen()
             }
         }
     }
