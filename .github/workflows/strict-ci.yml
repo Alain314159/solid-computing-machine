@@ -32,15 +32,18 @@ jobs:
           cache: gradle
       - uses: android-actions/setup-android@v3
       - run: chmod +x gradlew
-      - run: ./gradlew clean compileDebugKotlin --no-daemon -Pksp.incremental=false
-      - name: Upload compilation report on failure
-        if: failure()
+      - run: ./gradlew clean compileDebugKotlin --no-daemon -Pksp.incremental=false 2>&1 | tee build/logs/kotlin-compile.log
+      - name: Upload compilation logs (always)
+        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: kotlin-compile-report
+          name: 01-kotlin-compile-logs
           path: |
+            **/build/logs/**/*.log
             **/build/reports/
             **/build/outputs/
+          retention-days: 14
+          if-no-files-found: warn
 
   lint-strict:
     name: "📋 Strict Lint"
@@ -55,17 +58,20 @@ jobs:
           distribution: 'temurin'
           cache: gradle
       - uses: android-actions/setup-android@v3
+      - run: mkdir -p build/logs
       - run: chmod +x gradlew
-      - run: ./gradlew lintDebug --no-daemon -Pksp.incremental=false
-      - name: Upload lint report
+      - run: ./gradlew lintDebug --no-daemon -Pksp.incremental=false 2>&1 | tee build/logs/lint.log
+      - name: Upload lint logs and reports
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: lint-report
+          name: 02-lint-logs-and-reports
           path: |
+            build/logs/lint.log
             app/build/reports/lint-results-debug.html
             app/build/reports/lint-results-debug.xml
-          retention-days: 7
+            app/build/outputs/lint-results-debug.sarif
+          retention-days: 14
           if-no-files-found: warn
 
   build-debug:
@@ -81,16 +87,27 @@ jobs:
           distribution: 'temurin'
           cache: gradle
       - uses: android-actions/setup-android@v3
+      - run: mkdir -p build/logs
       - run: chmod +x gradlew
-      - run: ./gradlew assembleDebug --no-daemon -Pksp.incremental=false
+      - run: ./gradlew assembleDebug --no-daemon -Pksp.incremental=false 2>&1 | tee build/logs/debug-build.log
       - name: Verify APK exists
         run: test -n "$(find app/build/outputs/apk/debug -name '*-debug.apk' -type f)" || (echo "No debug APK found" && exit 1)
       - name: Upload Debug APK
         uses: actions/upload-artifact@v4
         with:
-          name: apk-debug
+          name: 03-apk-debug
           path: app/build/outputs/apk/debug/*.apk
           retention-days: 14
+      - name: Upload debug build logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: 04-debug-build-logs
+          path: |
+            build/logs/debug-build.log
+            app/build/outputs/apk/debug/output-metadata.json
+          retention-days: 14
+          if-no-files-found: warn
       - name: Show APK info
         run: |
           echo "## 📦 Debug APK Built" >> $GITHUB_STEP_SUMMARY
@@ -115,16 +132,57 @@ jobs:
           distribution: 'temurin'
           cache: gradle
       - uses: android-actions/setup-android@v3
+      - run: mkdir -p build/logs
       - run: chmod +x gradlew
-      - run: ./gradlew assembleRelease --no-daemon -Pksp.incremental=false
+      - run: ./gradlew assembleRelease --no-daemon -Pksp.incremental=false 2>&1 | tee build/logs/release-build.log
       - name: Verify Release APK exists
         run: test -n "$(find app/build/outputs/apk -name '*-release.apk' -type f)" || (echo "No release APK found" && exit 1)
       - name: Upload Release APK
         uses: actions/upload-artifact@v4
         with:
-          name: apk-release
+          name: 05-apk-release
           path: app/build/outputs/apk/release/*.apk
           retention-days: 14
+      - name: Upload release build logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: 06-release-build-logs
+          path: |
+            build/logs/release-build.log
+            app/build/outputs/apk/release/output-metadata.json
+          retention-days: 14
+          if-no-files-found: warn
+
+  collect-all-logs:
+    name: "📁 Collect All Build Logs"
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: [kotlin-compile-check, lint-strict, build-debug, build-release]
+    if: always()
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: ./all-artifacts
+      - name: Create comprehensive logs archive
+        run: |
+          mkdir -p logs-archive
+          cp -r ./all-artifacts/**/build/logs/**/* logs-archive/ 2>/dev/null || true
+          cp -r ./all-artifacts/**/*logs* logs-archive/ 2>/dev/null || true
+          find . -name "*.log" -exec cp {} logs-archive/ \; 2>/dev/null || true
+      - name: Upload complete logs archive
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: 00-complete-build-logs
+          path: |
+            logs-archive/
+            **/*.log
+            **/build/reports/**
+          retention-days: 30
+          if-no-files-found: warn
 
   github-release:
     name: "🎉 GitHub Release"
@@ -136,12 +194,12 @@ jobs:
       - name: Download Debug APK
         uses: actions/download-artifact@v4
         with:
-          name: apk-debug
+          name: 03-apk-debug
           path: ./artifacts/debug
       - name: Download Release APK
         uses: actions/download-artifact@v4
         with:
-          name: apk-release
+          name: 05-apk-release
           path: ./artifacts/release
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
@@ -151,13 +209,16 @@ jobs:
             ./artifacts/release/*.apk
           body: |
             ## 📱 Release ${{ github.ref_name }}
-            
+
             ### 📥 Downloads
             | APK | Description |
             |-----|-------------|
             | Debug | Testing enabled |
             | Release | Optimized |
-            
+
+            ### 📊 Build Logs
+            Los logs completos de compilación están disponibles en los artifacts de GitHub Actions.
+
             _Auto-generated by GitHub Actions_
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -166,7 +227,7 @@ jobs:
     name: "📊 Quality Gate Summary"
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    needs: [kotlin-compile-check, lint-strict, build-debug, build-release]
+    needs: [kotlin-compile-check, lint-strict, build-debug, build-release, collect-all-logs]
     if: always()
     steps:
       - name: Check job statuses
@@ -179,19 +240,35 @@ jobs:
           echo "| Strict Lint | ${{ needs.lint-strict.result }} |" >> $GITHUB_STEP_SUMMARY
           echo "| Build Debug APK | ${{ needs.build-debug.result }} |" >> $GITHUB_STEP_SUMMARY
           echo "| Build Release APK | ${{ needs.build-release.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Collect All Logs | ${{ needs.collect-all-logs.result }} |" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 
           if [ "${{ needs.kotlin-compile-check.result }}" != "success" ] || \
              [ "${{ needs.lint-strict.result }}" != "success" ] || \
              [ "${{ needs.build-debug.result }}" != "success" ]; then
             echo "❌ **Quality Gate FAILED**" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "### 📄 Download Logs" >> $GITHUB_STEP_SUMMARY
+            echo "Los logs completos están disponibles en los artifacts:" >> $GITHUB_STEP_SUMMARY
+            echo "- **00-complete-build-logs**: Todos los logs de compilación" >> $GITHUB_STEP_SUMMARY
+            echo "- **01-kotlin-compile-logs**: Logs de compilación Kotlin" >> $GITHUB_STEP_SUMMARY
+            echo "- **02-lint-logs-and-reports**: Reports de lint" >> $GITHUB_STEP_SUMMARY
+            echo "- **04-debug-build-logs**: Logs de build debug" >> $GITHUB_STEP_SUMMARY
+            echo "- **06-release-build-logs**: Logs de build release" >> $GITHUB_STEP_SUMMARY
             exit 1
           else
             echo "✅ **Quality Gate PASSED** - Ready to use!" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
-            echo "### 📱 Next Steps:" >> $GITHUB_STEP_SUMMARY
-            echo "1. Download APK from artifacts" >> $GITHUB_STEP_SUMMARY
-            echo "2. Install on device" >> $GITHUB_STEP_SUMMARY
-            echo "3. Configure Matrix login" >> $GITHUB_STEP_SUMMARY
-            echo "4. Share Ntfy topic with partner" >> $GITHUB_STEP_SUMMARY
+            echo "### 📱 Downloads Available" >> $GITHUB_STEP_SUMMARY
+            echo "| Artifact | Description |" >> $GITHUB_STEP_SUMMARY
+            echo "|----------|-------------|" >> $GITHUB_STEP_SUMMARY
+            echo "| **03-apk-debug** | APK Debug para testing |" >> $GITHUB_STEP_SUMMARY
+            echo "| **05-apk-release** | APK Release optimizado |" >> $GITHUB_STEP_SUMMARY
+            echo "| **00-complete-build-logs** | Todos los logs de compilación |" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "### 📊 Next Steps:" >> $GITHUB_STEP_SUMMARY
+            echo "1. Descarga el APK desde artifacts" >> $GITHUB_STEP_SUMMARY
+            echo "2. Instala en tu dispositivo" >> $GITHUB_STEP_SUMMARY
+            echo "3. Configura login de Matrix" >> $GITHUB_STEP_SUMMARY
+            echo "4. Comparte el topic de Ntfy con tu pareja" >> $GITHUB_STEP_SUMMARY
           fi
