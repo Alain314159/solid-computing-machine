@@ -1,4 +1,4 @@
-🐨 CERDITA 💕
+🐨 Cerdita 💕
 
 **La app de chat romántico para parejas**
 
@@ -11,7 +11,7 @@
 
 ## 📱 Descripción
 
-**Cerdita 💕** es una aplicación de chat romántico diseñada específicamente para parejas. Conecta con tu pareja a través de Matrix.org y disfruta de características únicas como:
+**Cerlita 💕** es una aplicación de chat romántico diseñada específicamente para parejas. Conecta con tu pareja a través de Matrix.org y disfruta de características únicas como:
 
 - 💬 Chat de texto en tiempo real
 - 💕 Efectos románticos al detectar palabras de amor
